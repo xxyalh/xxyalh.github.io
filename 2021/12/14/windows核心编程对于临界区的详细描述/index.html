@@ -1,0 +1,204 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>Windows核心编程对于临界区的详细描述 | Welcome to Aaron's personal blog</title><meta name="keywords" content="windows"><meta name="author" content="Aaron"><meta name="copyright" content="Aaron"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="临界区 临界区是指一个小代码段，在代码执行前能够独占某些资源的访问权；需要注意的是，系统仍然能够控制线程的运行，去安排其他线程。不过，在线程退出临界区之前，系统不会调度其他试图访问相同资源的线程。来看一段代码： const int p &#x3D; 1000;&#x2F;&#x2F;对这个全局变量进行操作int g_index &#x3D; 0;DWORD g_time[p];DWORD WINAPI Thread1(DWORD pPa">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Windows核心编程对于临界区的详细描述">
+<meta property="og:url" content="https://xxyalh.github.io/2021/12/14/windows%E6%A0%B8%E5%BF%83%E7%BC%96%E7%A8%8B%E5%AF%B9%E4%BA%8E%E4%B8%B4%E7%95%8C%E5%8C%BA%E7%9A%84%E8%AF%A6%E7%BB%86%E6%8F%8F%E8%BF%B0/index.html">
+<meta property="og:site_name" content="Welcome to Aaron&#39;s personal blog">
+<meta property="og:description" content="临界区 临界区是指一个小代码段，在代码执行前能够独占某些资源的访问权；需要注意的是，系统仍然能够控制线程的运行，去安排其他线程。不过，在线程退出临界区之前，系统不会调度其他试图访问相同资源的线程。来看一段代码： const int p &#x3D; 1000;&#x2F;&#x2F;对这个全局变量进行操作int g_index &#x3D; 0;DWORD g_time[p];DWORD WINAPI Thread1(DWORD pPa">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://aaronblogs.oss-cn-beijing.aliyuncs.com/Jiet/img202206252312966.png">
+<meta property="article:published_time" content="2021-12-14T08:14:00.000Z">
+<meta property="article:modified_time" content="2022-07-16T04:24:10.559Z">
+<meta property="article:author" content="Aaron">
+<meta property="article:tag" content="windows">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://aaronblogs.oss-cn-beijing.aliyuncs.com/Jiet/img202206252312966.png"><link rel="shortcut icon" href="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207152346410.jpg"><link rel="canonical" href="https://xxyalh.github.io/2021/12/14/windows%E6%A0%B8%E5%BF%83%E7%BC%96%E7%A8%8B%E5%AF%B9%E4%BA%8E%E4%B8%B4%E7%95%8C%E5%8C%BA%E7%9A%84%E8%AF%A6%E7%BB%86%E6%8F%8F%E8%BF%B0/"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar/dist/snackbar.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="/Monaco" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  date_suffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'mediumZoom',
+  Snackbar: {"chs_to_cht":"你已切换为繁体","cht_to_chs":"你已切换为简体","day_to_night":"你已切换为深色模式","night_to_day":"你已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#1f1f1f","position":"bottom-left"},
+  source: {
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Windows核心编程对于临界区的详细描述',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2022-07-16 12:24:10'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+    const detectApple = () => {
+      if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+    })(window)</script><link rel="stylesheet" href="/css/shadow.css"><link rel="stylesheet" href="/css/mycss.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/sviptzk/StaticFile_HEXO@latest/butterfly/css/plugins.min.css"><meta name="generator" content="Hexo 6.2.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207152346410.jpg" onerror="onerror=null;src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">10</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友情链接</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-float-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw far fa-clipboard"></i><span> 留言板</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="not-top-img" id="page-header"><nav id="nav"><span id="blog_name"><a id="site-name" href="/">Welcome to Aaron's personal blog</a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友情链接</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-float-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw far fa-clipboard"></i><span> 留言板</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><a class="site-page"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">Windows核心编程对于临界区的详细描述</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2021-12-14T08:14:00.000Z" title="发表于 2021-12-14 16:14:00">2021-12-14</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2022-07-16T04:24:10.559Z" title="更新于 2022-07-16 12:24:10">2022-07-16</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/windows/">windows</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="Windows核心编程对于临界区的详细描述"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div><article class="post-content" id="article-container"><h2 id="临界区"><a href="#临界区" class="headerlink" title="临界区"></a>临界区</h2><hr>
+<p>临界区是指一个小代码段，在代码执行前能够独占某些资源的访问权；需要注意的是，系统仍然能够控制线程的运行，去安排其他线程。不过，在线程退出临界区之前，系统不会调度其他试图访问相同资源的线程。来看一段代码：</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="type">const</span> <span class="type">int</span> p = <span class="number">1000</span>;<span class="comment">//对这个全局变量进行操作</span></span><br><span class="line"><span class="type">int</span> g_index = <span class="number">0</span>;</span><br><span class="line">DWORD g_time[p];</span><br><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread1</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">while</span> (g_index&lt;p)</span><br><span class="line">	&#123;</span><br><span class="line">		g_time[g_index] = <span class="built_in">GetTickCount</span>();<span class="comment">//检索自系统启动以来经过的毫秒数</span></span><br><span class="line">		g_index++;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread2</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">while</span> (g_index &lt; p) &#123;</span><br><span class="line">		g_index++;</span><br><span class="line">		g_time[g_index - <span class="number">1</span>] = <span class="built_in">GetTickCount</span>();</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这俩个函数如果单独执行，会产生相同的结果；如果在一个只有一个处理器的机器上跑，系统可能会先调用Thread2，当线程执行完g_index++后，cpu时间片耗尽要切换到Thread1，当这个线程的GetTickCount()获取时间时会将g_thime[1]设置为系统时间，然后再讲cpu分配到Thread2，它会将g_time[0]设置为系统时间；这样时间长的反而会被设置为0，短的设置为1，和预期结果是不一样的，这种线程安全问题会给后期的检查工作带来极大的麻烦。我们使用临界区去解决这个问题：</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="type">const</span> <span class="type">int</span> p = <span class="number">1000</span>;<span class="comment">//对这个全局变量进行操作</span></span><br><span class="line"><span class="type">int</span> g_index = <span class="number">0</span>;</span><br><span class="line">DWORD g_time[p];</span><br><span class="line">CRITICAL_SECTION g_cs;<span class="comment">//创建临界区对象</span></span><br><span class="line"> </span><br><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread1</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">while</span> (g_index&lt;p)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="built_in">EnterCriticalSection</span>(&amp;g_cs);<span class="comment">//进入临界区</span></span><br><span class="line">		g_time[g_index] = <span class="built_in">GetTickCount</span>();<span class="comment">//检索自系统启动以来经过的毫秒数</span></span><br><span class="line">		g_index++;</span><br><span class="line">		<span class="built_in">LeaveCriticalSection</span>(&amp;g_cs);<span class="comment">//离开临界区</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread2</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">while</span> (g_index &lt; p) &#123;</span><br><span class="line">		<span class="built_in">EnterCriticalSection</span>(&amp;g_cs);<span class="comment">//进入临界区</span></span><br><span class="line">		g_index++;</span><br><span class="line">		g_time[g_index - <span class="number">1</span>] = <span class="built_in">GetTickCount</span>();</span><br><span class="line">		<span class="built_in">LeaveCriticalSection</span>(&amp;g_cs);<span class="comment">//离开临界区</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br></pre></td></tr></table></figure>
+<p>指定了一个CRITICAL_SECTION 结构用来保护所有的资源，用EnterCriticalSection和LeaveCriticalSection函数将可能会共享资源的代码包裹住，这两个函数都调用了结构体的地址。</p>
+<p>如果有多个不是一道使用的资源，比如1和2访问一个资源，1和3访问另外一个，这样需要为每一个资源创建一个独立的CRITICAL_SECTION结构。这个结构用来标识需要进入的线程，而EnterCriticalSection用来标识这个线程是否有人在使用。要记住在离开临界区时一定要调用LeaveCriticalSection，不然其他线程还是无法访问资源。</p>
+<p><strong>在无法使用互锁函数解决同步问题时，需要用到临界区。临界区的优点是使用容易，在内部使用互锁函数，因此能够快速运行。它的缺点是无法使用它们对多个进程中各个线程进行同步。</strong></p>
+<h2 id="在了解完临界区的第一阶段之后，进入临界区的第二阶段，进入底层了解原理"><a href="#在了解完临界区的第一阶段之后，进入临界区的第二阶段，进入底层了解原理" class="headerlink" title="在了解完临界区的第一阶段之后，进入临界区的第二阶段，进入底层了解原理"></a>在了解完临界区的第一阶段之后，进入临界区的第二阶段，进入底层了解原理</h2><hr>
+<p>先从第一个疑点，CRITIACAL_SECTION结构说起。当你用F1查看这个结构时，你只能看到结构成员，成员从哪来并不知道。因为微软认为你没有必要了解这个结构。CRITICAL_SECTION在WinNT.h中定义为RTL_CRITICAL_SECTION,这个结构也爱WinBase中做了定义、但是绝不应该编写引用这些成员的代码。</p>
+<p>想要使用CRITIACAL_SECTION结构需要一个windows函数，那这个函数是如何对结构体成员进行操控的？</p>
+<p>使用这个结构体有俩个要求：</p>
+<ul>
+<li>需要访问这个资源的线程必须要知道负责保护线程的CRITICAL_SECTION结构我的地址，这个地址可以使用任何方法获取。</li>
+<li>CRITICAL_SECTION结构中的成员应该在被访问前对成员进行初始化。函数为VOID IniticlizeCriticalSection(PCRITICAL_SECTION pcs);<br> 这个函数只是对结构体的某些成员做了初始化，所以运行并不会失败，如果一个线程进入了一个未初始化的CRITICAL_SECTION结构，后果是不可预测的。</li>
+</ul>
+<p>当没有线程需要访问资源是，需要调用函数清楚CRITICAL_SECTION结构：VOID DeleteCriticalSection(PCRITION pcs);</p>
+<p><strong>前面说过EnterCriticalSecion怎么使用</strong>现在说一下为什么这么使用：这个函数负责查看这个结构体中的成员变量，然后进行如下测试：后面为了方便这个函数使用ECS函数代替；</p>
+<ul>
+<li>如果没有线程访问资源，ECS就更新成员变量。告诉线程能够单独访问这个资源。</li>
+<li>如果成员变量指明线程已经被赋予对资源的访问权，ECS就更新成员变量，说明线程被赋予了多少次访问权并且立即返回，使现车个继续运行。这种情况很少见，只有当线程在一行中调用俩次ECS函数并且不影响LeaveCriticalSection函数的调用，才会出现这种情况。</li>
+<li>如果成员变量指明，这个资源在被调用之前就有别的线程获取了访问权，那ECS将调用线程置于等待状态。等待线程不会浪费cpu。当这个资源调用了LeaveCritiolSecton释放资源后，这个线程就会从等待状态恢复为可调度状态。<br> 有一种极端情况，如果在多处理器上俩个线程在同一时刻调用ECS函数，那这个函数还有用吗？  答案是有用，还是会将一个线程赋予资源访问权，有一个线程进入等待。因为这个函数的所有测试操作都是以原子方式进行的。</li>
+</ul>
+<p>如果ECS函数将一个线程置于等待状态，要是在编写不好的程序中这个线程永远不会被调用，这个线程被称为渴求线程。但是在实际操作中，永远也不会出现这种情况。在注册表中CriticalSectionTimeout数据值决定的。如果请求时间超过这个时间，就会产生一个异常条件。这个函数其实可以用更方便的一个函数来代替:BOOL TryEnterCriticalSection(PCRITICAL_SECTION pcs);</p>
+<p>这个不允许进入等待状态，它的返回值能够指明调用线程是否能够获取资源的访问权。如果发现有别的线程在访问资源，句返回FALSE，其他条件都会返回TRUE。要注意的是这个函数在windows 98中并没有实现，调用总会返回FALSE。</p>
+<h2 id="再来认识一个函数：WaitForSingleObject。"><a href="#再来认识一个函数：WaitForSingleObject。" class="headerlink" title="再来认识一个函数：WaitForSingleObject。"></a>再来认识一个函数：WaitForSingleObject。</h2><hr>
+<p>当WaitForSingleObject函数的第一个参数从未通知状态别为已通知状态时，在这个函数之下的WaitForSingleObject就不会在等待；线程正在运行为未通知状态，反正为已通知；这个函数等待单个对象，WaitForMultipleObjects()函数等待多个对象；第三个参数如果是true，会等待所有线程都执行完才会往下跑，如果是false，只要有任何一个线程变为已通知就会往下跑；</p>
+<p>再来看在结尾处需要调用的函数LeaveCriticalSection函数的使用：这个函数没调用一次计数就会减1，如果这个计数大于0，那么这个函数不做其他操作，只返回。如果为0，就会查看在EnterCriticalSection中是否有其他线程在等待，如果至少有一个线程在等待，它就会先更新成员变量，将其中一个线程变为可调度状态。如果没有线程在等待，这个函数也会更新成员变量说明情况。</p>
+<p>LeaveCriticalSection函数和EnterCriticalSection函数一样都可以以原子操作执行所有这些测试和更新，不过LeaveCriticalSection从不会使线程进入等待状态。当线程进入等待状态时，意味着线程必须从用户模式转为内核状态，这种转换消耗巨大。</p>
+<p>在来看临界区的另外一种情况：在内存不足的情况下，可能会争临界区，同时系统也无法创建必要的事件内核对象，这是EnterCriticalSection会产生一个EXCEPTION_INVALID_HANDLE异常，这种情况非常少见，有俩种方法可以对这种情况进行处理。</p>
+<ul>
+<li>可以使用结构化异常处理方式来跟踪错误。当初五发生时，可以不访问临界区保护的资源，可以等待某些内存变为可用状态时，再次调用EnterCriticalSection函数。</li>
+<li>可以使用InitializeCriticalSectionAndSpinCount函数创建代码段，函数解释可以在vs中选中按F1进行查看，该函数要确保设置了dwSpinCount参数的高位。如果设置了，就创建事件内核对象。并且在初始化时和临界区关联起来。如果事件无法创建，就返回FALSE。如果事件创建成功，那EnterCriticalSection函数始终都能够运行。</li>
+</ul>
+<h2 id="关于临界区的使用技巧："><a href="#关于临界区的使用技巧：" class="headerlink" title="关于临界区的使用技巧："></a><strong>关于临界区的使用技巧：</strong></h2><p><strong>1.每个共享资源使用一个CRITICAL_SECTION变量</strong></p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line">DWORD g_time[<span class="number">100</span>];</span><br><span class="line">DWORD g_name[<span class="number">100</span>];</span><br><span class="line">CRITICAL_SECTION g_cs;<span class="comment">//创建临界区对象</span></span><br><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread1</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="built_in">EnterCriticalSection</span>(&amp;g_cs);</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">		g_name[i] = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">		g_time[i] = <span class="string">&#x27;x&#x27;</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="built_in">LeaveCriticalSection</span>(&amp;g_cs);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段代码在理论上是讲，俩个数组初始化没有联系，在初始化数组g_name后，另一个只需要访问g_name数组而不是访问g_time数组的线程就可以执行了，同时Thread1可以继续对g_time数组进行初始化，但是这是不可能的，因为用一个临界区保护着这俩个数据结构。这种情况就需要创建俩个临界区分别初始化：</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line">DWORD g_time[<span class="number">100</span>];</span><br><span class="line">CRITICAL_SECTION g_csTime;<span class="comment">//创建临界区对象</span></span><br><span class="line">DWORD g_name[<span class="number">100</span>];</span><br><span class="line">CRITICAL_SECTION g_csName;<span class="comment">//创建临界区对象</span></span><br><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread1</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="built_in">EnterCriticalSection</span>(&amp;g_csTime);</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">		g_name[i] = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="built_in">LeaveCriticalSection</span>(&amp;g_csTime);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">EnterCriticalSection</span>(&amp;g_csName);</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">		g_time[i] = <span class="string">&#x27;x&#x27;</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="built_in">LeaveCriticalSection</span>(&amp;g_csName);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个代码一旦完成了对g_name数组的初始化，另一个线程就可以开始使用g_name数组。</p>
+<p><strong>2.同时访问多个资源</strong></p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread1</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="built_in">EnterCriticalSection</span>(&amp;g_csTime);</span><br><span class="line">	<span class="built_in">EnterCriticalSection</span>(&amp;g_csName);</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">		g_name[i] = g_time[i];</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="built_in">LeaveCriticalSection</span>(&amp;g_csName);</span><br><span class="line">	<span class="built_in">LeaveCriticalSection</span>(&amp;g_csTime);</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果另外一个函数中的一个进程也要访问这俩个资源：</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function">DWORD WINAPI <span class="title">Thread2</span><span class="params">(DWORD pParam)</span> </span>&#123;</span><br><span class="line">	<span class="built_in">EnterCriticalSection</span>(&amp;g_csName);</span><br><span class="line">	<span class="built_in">EnterCriticalSection</span>(&amp;g_csTime);</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">		g_name[i] = g_time[i];</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="built_in">LeaveCriticalSection</span>(&amp;g_csName);</span><br><span class="line">	<span class="built_in">LeaveCriticalSection</span>(&amp;g_csTime);</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个函数切换了进入临界区的顺序，就有可能产生死锁。Thread1先获得g_csTime的所有权，当线程切换到Thread2时，先获得了g_csName的所有权，当cpu再次到thread1的时候，就会发生死锁，谁都无法获得另一个临界区的所有权。</p>
+<p>解决这个问题，必须始终按照完全相同的顺序请求对资源的访问。</p>
+<p><strong>3.不要在临界区长时间运行同一个线程</strong></p>
+<p>如果无法确定在处理消息需要花费多长时间，可能几个毫秒，可能需要几年。这样的程序就是有问题的。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="https://xxyalh.github.io">Aaron</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://xxyalh.github.io/2021/12/14/windows%E6%A0%B8%E5%BF%83%E7%BC%96%E7%A8%8B%E5%AF%B9%E4%BA%8E%E4%B8%B4%E7%95%8C%E5%8C%BA%E7%9A%84%E8%AF%A6%E7%BB%86%E6%8F%8F%E8%BF%B0/">https://xxyalh.github.io/2021/12/14/windows核心编程对于临界区的详细描述/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://xxyalh.github.io" target="_blank">Welcome to Aaron's personal blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/windows/">windows</a></div><div class="post_share"><div class="social-share" data-image="https://aaronblogs.oss-cn-beijing.aliyuncs.com/Jiet/img202206252312966.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i> 打赏</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160939363.jpg" target="_blank"><img class="post-qr-code-img" src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160939363.jpg" alt="wechat"/></a><div class="post-qr-code-desc">wechat</div></li><li class="reward-item"><a href="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160939187.png" target="_blank"><img class="post-qr-code-img" src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160939187.png" alt="alipay"/></a><div class="post-qr-code-desc">alipay</div></li></ul></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2021/12/15/Linux%E9%83%A8%E7%BD%B2MYSQL%E5%87%BA%E7%8E%B0%E7%9A%84Permission%20denied%E9%97%AE%E9%A2%98%E5%92%8CMySQLinitialize%E5%AF%86%E7%A0%81/"><img class="prev-cover" src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/Linux%E9%83%A8%E7%BD%B2MySQL/img202206252259609.png" onerror="onerror=null;src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="cover of previous post"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Linux部署MYSQL出现的Permission denied问题和MySQLinitialize密码</div></div></a></div><div class="next-post pull-right"><a href="/2021/12/02/%E6%A4%8D%E7%89%A9%E5%A4%A7%E6%88%98%E5%83%B5%E5%B0%B8%E6%97%A0%E5%86%B7%E5%8D%B4%E6%96%B9%E5%BC%8F/"><img class="next-cover" src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/%E6%A4%8D%E7%89%A9%E5%A4%A7%E6%88%98%E5%83%B5%E5%B0%B8%E6%97%A0%E5%86%B7%E5%8D%B4%E6%96%B9%E5%BC%8F/img202206260003120.png" onerror="onerror=null;src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="cover of next post"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">植物大战僵尸无冷却方式</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2021/12/17/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F/" title="保护模式"><img class="cover" src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207161043911.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2021-12-17</div><div class="title">保护模式</div></div></a></div><div><a href="/2021/12/18/%E5%8F%8C%E6%9C%BA%E8%B0%83%E8%AF%95%E5%AE%8C%E6%95%B4%E6%AD%A5%E9%AA%A4/" title="双机调试完整步骤"><img class="cover" src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/%E5%8F%8C%E6%9C%BA%E8%B0%83%E8%AF%95%E5%AE%8C%E6%95%B4%E6%AD%A5%E9%AA%A4/img202206252357506.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2021-12-18</div><div class="title">双机调试完整步骤</div></div></a></div><div><a href="/2021/12/02/%E6%A4%8D%E7%89%A9%E5%A4%A7%E6%88%98%E5%83%B5%E5%B0%B8%E6%97%A0%E5%86%B7%E5%8D%B4%E6%96%B9%E5%BC%8F/" title="植物大战僵尸无冷却方式"><img class="cover" src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/%E6%A4%8D%E7%89%A9%E5%A4%A7%E6%88%98%E5%83%B5%E5%B0%B8%E6%97%A0%E5%86%B7%E5%8D%B4%E6%96%B9%E5%BC%8F/img202206260003120.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2021-12-02</div><div class="title">植物大战僵尸无冷却方式</div></div></a></div><div><a href="/2021/12/01/%E8%B5%84%E6%BA%90%E5%88%86%E4%BA%AB%E9%93%BE%E6%8E%A5/" title="所有资源链接"><img class="cover" src="https://cdn.jsdelivr.net/gh/xxyalh/picgo/202112171503098.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2021-12-01</div><div class="title">所有资源链接</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207152346410.jpg" onerror="this.onerror=null;this.src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="avatar"/></div><div class="author-info__name">Aaron</div><div class="author-info__description">Do not give up again</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">10</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">内容正在积极更新中，欢迎访问收藏。<img src="https://cdn.jsdelivr.net/gh/rigodlee/BLOGCDN/img/20150404H5648_ZuzhL.gif"></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%B4%E7%95%8C%E5%8C%BA"><span class="toc-number">1.</span> <span class="toc-text">临界区</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%A8%E4%BA%86%E8%A7%A3%E5%AE%8C%E4%B8%B4%E7%95%8C%E5%8C%BA%E7%9A%84%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%E4%B9%8B%E5%90%8E%EF%BC%8C%E8%BF%9B%E5%85%A5%E4%B8%B4%E7%95%8C%E5%8C%BA%E7%9A%84%E7%AC%AC%E4%BA%8C%E9%98%B6%E6%AE%B5%EF%BC%8C%E8%BF%9B%E5%85%A5%E5%BA%95%E5%B1%82%E4%BA%86%E8%A7%A3%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">在了解完临界区的第一阶段之后，进入临界区的第二阶段，进入底层了解原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%8D%E6%9D%A5%E8%AE%A4%E8%AF%86%E4%B8%80%E4%B8%AA%E5%87%BD%E6%95%B0%EF%BC%9AWaitForSingleObject%E3%80%82"><span class="toc-number">3.</span> <span class="toc-text">再来认识一个函数：WaitForSingleObject。</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E4%BA%8E%E4%B8%B4%E7%95%8C%E5%8C%BA%E7%9A%84%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">关于临界区的使用技巧：</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2022/01/12/%E6%94%BB%E5%87%BBWeb%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/" title="MD5哈希注入"><img src="https://cdn.jsdelivr.net/gh/xxyalh/picgo/202201121639119.jfif" onerror="this.onerror=null;this.src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="MD5哈希注入"/></a><div class="content"><a class="title" href="/2022/01/12/%E6%94%BB%E5%87%BBWeb%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/" title="MD5哈希注入">MD5哈希注入</a><time datetime="2022-01-12T07:34:00.000Z" title="发表于 2022-01-12 15:34:00">2022-01-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/12/18/%E5%8F%8C%E6%9C%BA%E8%B0%83%E8%AF%95%E5%AE%8C%E6%95%B4%E6%AD%A5%E9%AA%A4/" title="双机调试完整步骤"><img src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/%E5%8F%8C%E6%9C%BA%E8%B0%83%E8%AF%95%E5%AE%8C%E6%95%B4%E6%AD%A5%E9%AA%A4/img202206252357506.png" onerror="this.onerror=null;this.src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="双机调试完整步骤"/></a><div class="content"><a class="title" href="/2021/12/18/%E5%8F%8C%E6%9C%BA%E8%B0%83%E8%AF%95%E5%AE%8C%E6%95%B4%E6%AD%A5%E9%AA%A4/" title="双机调试完整步骤">双机调试完整步骤</a><time datetime="2021-12-18T06:36:00.000Z" title="发表于 2021-12-18 14:36:00">2021-12-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/12/17/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F/" title="保护模式"><img src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207161043911.png" onerror="this.onerror=null;this.src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="保护模式"/></a><div class="content"><a class="title" href="/2021/12/17/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F/" title="保护模式">保护模式</a><time datetime="2021-12-17T07:21:00.000Z" title="发表于 2021-12-17 15:21:00">2021-12-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/12/16/C++%E5%9F%BA%E7%A1%80-win32%E9%83%A8%E5%88%86/" title="C++基础-win32部分"><img src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/Win32%E9%83%A8%E5%88%86/img202206252312966.png" onerror="this.onerror=null;this.src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="C++基础-win32部分"/></a><div class="content"><a class="title" href="/2021/12/16/C++%E5%9F%BA%E7%A1%80-win32%E9%83%A8%E5%88%86/" title="C++基础-win32部分">C++基础-win32部分</a><time datetime="2021-12-16T07:59:00.000Z" title="发表于 2021-12-16 15:59:00">2021-12-16</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/12/16/C++%E9%9D%A2%E8%AF%95%E5%9F%BA%E7%A1%80%E5%B8%B8%E8%AF%86/" title="C++面试基础常识"><img src="https://aaronblogs.oss-cn-beijing.aliyuncs.com/Jiet/12.png" onerror="this.onerror=null;this.src='https://aaronblogs.oss-cn-beijing.aliyuncs.com/img/202207160935672.jpg'" alt="C++面试基础常识"/></a><div class="content"><a class="title" href="/2021/12/16/C++%E9%9D%A2%E8%AF%95%E5%9F%BA%E7%A1%80%E5%B8%B8%E8%AF%86/" title="C++面试基础常识">C++面试基础常识</a><time datetime="2021-12-16T07:59:00.000Z" title="发表于 2021-12-16 15:59:00">2021-12-16</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2022 By Aaron</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom/dist/medium-zoom.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar/dist/snackbar.min.js"></script><script>var preloader = {
+  endLoading: () => {
+    document.body.style.overflow = 'auto';
+    document.getElementById('loading-box').classList.add("loaded")
+  },
+  initLoading: () => {
+    document.body.style.overflow = '';
+    document.getElementById('loading-box').classList.remove("loaded")
+
+  }
+}
+window.addEventListener('load',preloader.endLoading())</script><div class="js-pjax"></div><script src="/js/shadow.js"></script> - <script src="https://myhkw.cn/player/js/player.js" id="myhk" key="159611061656" m="1"></script><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
